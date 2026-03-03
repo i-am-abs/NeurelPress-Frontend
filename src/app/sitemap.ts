@@ -1,0 +1,50 @@
+import type { MetadataRoute } from "next";
+
+const BASE_URL = "https://neuralpress.dev";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+
+  const staticPages: MetadataRoute.Sitemap = [
+    { url: BASE_URL, lastModified: new Date(), changeFrequency: "daily", priority: 1.0 },
+    { url: `${BASE_URL}/explore`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
+    { url: `${BASE_URL}/library`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+  ];
+
+  // Fetch published articles for dynamic sitemap
+  try {
+    const articlesRes = await fetch(`${apiUrl}/articles?page=0&size=100`, {
+      next: { revalidate: 3600 },
+    });
+    if (articlesRes.ok) {
+      const data = await articlesRes.json();
+      const articlePages: MetadataRoute.Sitemap = data.content.map((article: { author: { username: string }; slug: string; updatedAt?: string; publishedAt?: string }) => ({
+        url: `${BASE_URL}/u/${article.author.username}/${article.slug}`,
+        lastModified: new Date(article.updatedAt || article.publishedAt || Date.now()),
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      }));
+      staticPages.push(...articlePages);
+    }
+  } catch {
+    // Fail gracefully if API is unavailable during build
+  }
+
+  // Fetch tags for tag sitemap
+  try {
+    const tagsRes = await fetch(`${apiUrl}/tags`, { next: { revalidate: 86400 } });
+    if (tagsRes.ok) {
+      const tags = await tagsRes.json();
+      const tagPages: MetadataRoute.Sitemap = tags.map((tag: { slug: string }) => ({
+        url: `${BASE_URL}/tag/${tag.slug}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      }));
+      staticPages.push(...tagPages);
+    }
+  } catch {
+    // Fail gracefully
+  }
+
+  return staticPages;
+}
