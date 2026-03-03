@@ -28,11 +28,35 @@ api.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
+
+  if (process.env.NODE_ENV !== "production") {
+    // Lightweight client-side logging for debugging
+    // Avoid logging sensitive bodies in production
+    // eslint-disable-next-line no-console
+    console.log(
+      "[API request]",
+      config.method?.toUpperCase(),
+      config.baseURL + config.url,
+      { params: config.params }
+    );
+  }
+
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.log(
+        "[API response]",
+        response.config.method?.toUpperCase(),
+        response.config.baseURL + response.config.url,
+        response.status
+      );
+    }
+    return response;
+  },
   async (error) => {
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
@@ -57,6 +81,18 @@ api.interceptors.response.use(
         }
       }
     }
+
+    if (process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.error(
+        "[API error]",
+        original?.method?.toUpperCase(),
+        original?.baseURL + original?.url,
+        error.response?.status,
+        error.response?.data
+      );
+    }
+
     return Promise.reject(error);
   }
 );
@@ -67,6 +103,10 @@ export const authApi = {
     api.post<AuthResponse>("/auth/register", data),
   login: (data: { email: string; password: string }) =>
     api.post<AuthResponse>("/auth/login", data),
+  requestOtp: (data: { email: string }) =>
+    api.post<{ message: string }>("/auth/request-otp", data),
+  loginWithOtp: (data: { email: string; otp: string }) =>
+    api.post<AuthResponse>("/auth/login-otp", data),
   me: () => api.get<User>("/auth/me"),
   logout: () => api.post("/auth/logout"),
   verifyEmail: (token: string) =>
@@ -134,6 +174,8 @@ export const userApi = {
   toggleFollow: (userId: string) => api.post(`/users/${userId}/follow`),
   isFollowing: (userId: string) =>
     api.get<{ following: boolean }>(`/users/${userId}/following`),
+  search: (query: string, page = 0, size = 12) =>
+    api.get<PageResponse<User>>("/users/search", { params: { query, page, size } }),
 };
 
 // Quotes

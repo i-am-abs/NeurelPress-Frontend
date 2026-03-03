@@ -15,21 +15,65 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"password" | "otp">("password");
+  const [otp, setOtp] = useState("");
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
-      const { data } = await authApi.login({ email, password });
+      let data;
+      if (mode === "password") {
+        // eslint-disable-next-line no-console
+        console.log("[Login] password login attempt", { email });
+        const res = await authApi.login({ email, password });
+        data = res.data;
+        toast.success("Welcome back!");
+      } else {
+        // eslint-disable-next-line no-console
+        console.log("[Login] OTP login attempt", { email });
+        const res = await authApi.loginWithOtp({ email, otp });
+        data = res.data;
+        toast.success("Logged in with OTP");
+      }
       login(data.user, data.accessToken, data.refreshToken);
-      toast.success("Welcome back!");
       router.push("/dashboard");
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "Invalid credentials"));
+      const message = getApiErrorMessage(
+        err,
+        mode === "password" ? "Invalid credentials" : "Invalid or expired OTP"
+      );
+      setError(message);
+      // eslint-disable-next-line no-console
+      console.error("[Login] failed", message, err);
+      toast.error(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRequestOtp = async () => {
+    if (!email) {
+      toast.error("Please enter your email first.");
+      return;
+    }
+    try {
+      // eslint-disable-next-line no-console
+      console.log("[Login] requesting OTP", { email });
+      await authApi.requestOtp({ email });
+      setOtpRequested(true);
+      toast.success("If this email is registered, an OTP has been sent.");
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Failed to send OTP");
+      setError(message);
+      // eslint-disable-next-line no-console
+      console.error("[Login] request OTP failed", message, err);
+      toast.error(message);
     }
   };
 
@@ -61,6 +105,11 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                {error}
+              </p>
+            )}
             <div>
               <label className="text-sm font-medium">Email Address</label>
               <Input
@@ -72,25 +121,77 @@ export default function LoginPage() {
                 className="mt-1"
               />
             </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Password</label>
-                <Link href="/forgot-password" className="text-xs text-primary hover:underline">
-                  Forgot?
-                </Link>
-              </div>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Log In"}
-            </Button>
+            {mode === "password" ? (
+              <>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Password</label>
+                    <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+                      Forgot?
+                    </Link>
+                  </div>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Signing in..." : "Log In"}
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-xs text-primary underline-offset-2 hover:underline"
+                  onClick={() => {
+                    setMode("otp");
+                    setError(null);
+                  }}
+                >
+                  Use one-time code instead
+                </button>
+              </>
+            ) : (
+              <>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">One-time code</label>
+                    <button
+                      type="button"
+                      onClick={handleRequestOtp}
+                      className="text-xs text-primary underline-offset-2 hover:underline"
+                    >
+                      {otpRequested ? "Resend code" : "Send code"}
+                    </button>
+                  </div>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="6-digit code"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Verifying..." : "Log In with Code"}
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-xs text-primary underline-offset-2 hover:underline"
+                  onClick={() => {
+                    setMode("password");
+                    setError(null);
+                  }}
+                >
+                  Use password instead
+                </button>
+              </>
+            )}
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">

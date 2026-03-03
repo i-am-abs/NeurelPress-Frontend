@@ -14,19 +14,30 @@ import toast from "react-hot-toast";
 export default function RegisterPage() {
   const [form, setForm] = useState({ username: "", email: "", password: "", displayName: "" });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
+      // eslint-disable-next-line no-console
+      console.log("[Register] submitting form", { ...form, password: "***" });
       const { data } = await authApi.register(form);
       login(data.user, data.accessToken, data.refreshToken);
       toast.success("Welcome to NeuralPress!");
       router.push("/dashboard");
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "Registration failed"));
+      const message = getApiErrorMessage(
+        err,
+        "Registration failed. Please check your details and try again."
+      );
+      setError(message);
+      // eslint-disable-next-line no-console
+      console.error("[Register] failed", message, err);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -50,6 +61,11 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
           <div>
             <label className="text-sm font-medium">Display Name</label>
             <Input

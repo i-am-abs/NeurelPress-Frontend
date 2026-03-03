@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useQuery } from "@tanstack/react-query";
@@ -39,6 +39,7 @@ function WritePageInner() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [aiLoading, setAiLoading] = useState<"tags" | "title" | "summary" | null>(null);
+  const contentRef = useRef<HTMLTextAreaElement | null>(null);
 
   const { data: editArticle } = useQuery({
     queryKey: ["edit-article", editSlug],
@@ -122,6 +123,74 @@ function WritePageInner() {
         ? prev.tagSlugs.filter((s) => s !== slug)
         : [...(prev.tagSlugs || []), slug],
     }));
+  };
+
+  const applyFormatting = (type: "bold" | "italic" | "h1" | "h2" | "h3" | "ul" | "ol" | "quote" | "code" | "image") => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+
+    const value = form.content || "";
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const selected = value.slice(start, end);
+
+    const wrapInline = (before: string, after: string) => {
+      const replacement = selected || "text";
+      return value.slice(0, start) + before + replacement + after + value.slice(end);
+    };
+
+    const prefixLines = (prefix: string) => {
+      const before = value.slice(0, start);
+      const selection = value.slice(start, end);
+      const after = value.slice(end);
+      const lines = (selection || "list item").split("\n");
+      const updated = lines.map((line) => (line.startsWith(prefix) ? line : `${prefix}${line}`)).join("\n");
+      return before + updated + after;
+    };
+
+    let next = value;
+
+    switch (type) {
+      case "bold":
+        next = wrapInline("**", "**");
+        break;
+      case "italic":
+        next = wrapInline("_", "_");
+        break;
+      case "h1":
+        next = prefixLines("# ");
+        break;
+      case "h2":
+        next = prefixLines("## ");
+        break;
+      case "h3":
+        next = prefixLines("### ");
+        break;
+      case "ul":
+        next = prefixLines("- ");
+        break;
+      case "ol":
+        next = prefixLines("1. ");
+        break;
+      case "quote":
+        next = prefixLines("> ");
+        break;
+      case "code":
+        next = wrapInline("`", "`");
+        break;
+      case "image": {
+        const url = window.prompt("Image URL");
+        if (!url) return;
+        const alt = window.prompt("Alt text") || "image";
+        const imageSyntax = `![${alt}](${url})`;
+        next = value.slice(0, end) + `\n${imageSyntax}\n` + value.slice(end);
+        break;
+      }
+      default:
+        break;
+    }
+
+    setForm((prev) => ({ ...prev, content: next }));
   };
 
   const handleSave = useCallback(async () => {
@@ -234,7 +303,41 @@ function WritePageInner() {
         {/* Content editor (Markdown) */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium">Content (Markdown)</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium">Content (Markdown)</p>
+              <div className="flex flex-wrap gap-1 text-xs">
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("bold")}>
+                  B
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("italic")}>
+                  I
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("h1")}>
+                  H1
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("h2")}>
+                  H2
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("h3")}>
+                  H3
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("ul")}>
+                  • List
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("ol")}>
+                  1. List
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("quote")}>
+                  “ Quote
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("code")}>
+                  {"</>"}
+                </Button>
+                <Button type="button" variant="outline" size="xs" onClick={() => applyFormatting("image")}>
+                  Img
+                </Button>
+              </div>
+            </div>
             <span className="text-xs text-muted-foreground font-mono">
               {form.content.split(/\s+/).filter(Boolean).length} words
             </span>
@@ -243,6 +346,17 @@ function WritePageInner() {
             placeholder="Write your article in Markdown..."
             value={form.content}
             onChange={(e) => setForm({ ...form, content: e.target.value })}
+            ref={contentRef}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+                e.preventDefault();
+                applyFormatting("bold");
+              }
+              if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "i") {
+                e.preventDefault();
+                applyFormatting("italic");
+              }
+            }}
             className="min-h-[500px] font-mono text-sm leading-relaxed"
           />
         </div>
