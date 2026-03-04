@@ -3,114 +3,107 @@
 @tailwind utilities;
 
 @layer base {
-  /* ========================================
-     LIGHT MODE — Professional Light
-     ======================================== */
-  :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 186 78% 48%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
-  }
+    :root {
+        --background: 210 20% 98%;
+        --foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+        --primary: 217 91% 60%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 210 40% 96%;
+        --secondary-foreground: 222 47% 11%;
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+        --accent: 186 78% 48%;
+        --accent-foreground: 222 47% 11%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 217 91% 60%;
+        --radius: 0.5rem;
+    }
 
-  /* ========================================
-     DARK MODE — Neural Dark (Terminal Aesthetic)
-     ======================================== */
-  .dark {
-    --background: 222 47% 7%;
-    --foreground: 210 40% 96%;
-    --card: 222 47% 10%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 186 78% 48%;
-    --accent-foreground: 222 47% 7%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 186 78% 48%;
-  }
+    .dark {
+        --background: 222 47% 7%;
+        --foreground: 210 40% 96%;
+        --card: 222 47% 10%;
+        --card-foreground: 210 40% 96%;
+        --popover: 222 47% 10%;
+        --popover-foreground: 210 40% 96%;
+        --primary: 217 91% 60%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 217 33% 17%;
+        --secondary-foreground: 210 40% 96%;
+        --muted: 217 33% 17%;
+        --muted-foreground: 215 20% 55%;
+        --accent: 186 78% 48%;
+        --accent-foreground: 222 47% 7%;
+        --destructive: 0 63% 31%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 217 33% 17%;
+        --input: 217 33% 17%;
+        --ring: 186 78% 48%;
+    }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-  }
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground font-sans antialiased;
+    }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+    .text-balance {
+        text-wrap: balance;
+    }
 }
 
-/* Reading progress bar */
 .reading-progress {
-  @apply fixed top-0 left-0 h-0.5 bg-gradient-to-r from-primary to-accent z-50;
-  transition: width 100ms ease-out;
+    @apply fixed top-0 left-0 h-0.5 bg-gradient-to-r from-primary to-accent z-50;
+    transition: width 100ms ease-out;
 }
 
-/* Prose styling for articles */
 .prose-neural {
-  @apply prose prose-lg dark:prose-invert max-w-none;
-  @apply prose-headings:font-sans prose-headings:font-bold;
-  @apply prose-p:font-serif prose-p:leading-relaxed;
-  @apply prose-a:text-primary prose-a:no-underline hover:prose-a:underline;
-  @apply prose-code:font-mono prose-code:text-sm;
-  @apply prose-pre:bg-neural-900 prose-pre:border prose-pre:border-border;
-  @apply prose-blockquote:border-l-primary prose-blockquote:italic;
-  @apply prose-img:rounded-lg;
+    @apply prose prose-lg dark:prose-invert max-w-none;
+    @apply prose-headings:font-sans prose-headings:font-bold;
+    @apply prose-p:font-serif prose-p:leading-relaxed;
+    @apply prose-a:text-primary prose-a:no-underline hover:prose-a:underline;
+    @apply prose-code:font-mono prose-code:text-sm;
+    @apply prose-pre:bg-neural-900 prose-pre:border prose-pre:border-border;
+    @apply prose-blockquote:border-l-primary prose-blockquote:italic;
+    @apply prose-img:rounded-lg;
 }
 
-/* Code blocks */
 pre code {
-  font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 0.875rem;
-  line-height: 1.7;
+    font-family: var(--font-jetbrains-mono), monospace;
+    font-size: 0.875rem;
+    line-height: 1.7;
 }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
+    width: 6px;
+    height: 6px;
 }
 
-/* Selection */
+::-webkit-scrollbar-track {
+    @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+}
+
 ::selection {
-  @apply bg-primary/20 text-foreground;
+    @apply bg-primary/20 text-foreground;
 }

@@ -1,33 +1,33 @@
 "use client";
 
-import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import { HiOutlineSun, HiOutlineMoon } from "react-icons/hi2";
-import { useEffect, useState } from "react";
+import {useTheme} from "next-themes";
+import {Button} from "@/components/ui/button";
+import {HiOutlineMoon, HiOutlineSun} from "react-icons/hi2";
+import {useEffect, useState} from "react";
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+    const {theme, setTheme} = useTheme();
+    const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+    useEffect(() => setMounted(true), []);
 
-  if (!mounted) {
-    return <Button variant="ghost" size="icon" className="h-9 w-9" />;
-  }
+    if (!mounted) {
+        return <Button variant="ghost" size="icon" className="h-9 w-9"/>;
+    }
 
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-9 w-9"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-    >
-      {theme === "dark" ? (
-        <HiOutlineSun className="h-5 w-5" />
-      ) : (
-        <HiOutlineMoon className="h-5 w-5" />
-      )}
-      <span className="sr-only">Toggle theme</span>
-    </Button>
-  );
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
+            {theme === "dark" ? (
+                <HiOutlineSun className="h-5 w-5"/>
+            ) : (
+                <HiOutlineMoon className="h-5 w-5"/>
+            )}
+            <span className="sr-only">Toggle theme</span>
+        </Button>
+    );
 }
