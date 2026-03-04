@@ -1,8 +1,10 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = "https://neuralpress.dev";
+const getBaseUrl = () =>
+  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const BASE_URL = getBaseUrl();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
   const staticPages: MetadataRoute.Sitemap = [

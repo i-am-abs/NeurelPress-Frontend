@@ -6,6 +6,33 @@ import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { STALE_TIME_LONG } from "@/lib/constants";
 
+const FALLBACK_QUOTES = [
+  {
+    text: "Artificial intelligence is the new electricity.",
+    author: "Andrew Ng",
+  },
+  {
+    text: "The greatest value of a picture is when it forces us to notice what we never expected to see.",
+    author: "John Tukey",
+  },
+  {
+    text: "In God we trust. All others must bring data.",
+    author: "W. Edwards Deming",
+  },
+  {
+    text: "The question of whether a computer can think is no more interesting than the question of whether a submarine can swim.",
+    author: "Edsger W. Dijkstra",
+  },
+  {
+    text: "Machine learning is the last invention that humanity will ever need to make.",
+    author: "Nick Bostrom",
+  },
+  {
+    text: "The purpose of computing is insight, not numbers.",
+    author: "Richard Hamming",
+  },
+];
+
 export function HeroQuote() {
   const { data: quote, isLoading } = useQuery({
     queryKey: ["quote-of-day"],
@@ -30,6 +57,24 @@ export function HeroQuote() {
             <Skeleton className="mx-auto h-8 w-1/2" />
             <Skeleton className="mx-auto mt-4 h-5 w-40" />
           </div>
+        ) : !quote ? (
+          (() => {
+            const idx =
+              FALLBACK_QUOTES.length === 0
+                ? 0
+                : Math.abs(new Date().getDay()) % FALLBACK_QUOTES.length;
+            const fallback = FALLBACK_QUOTES[idx];
+            return (
+              <>
+                <blockquote className="font-serif text-2xl font-medium leading-relaxed text-foreground md:text-3xl">
+                  &ldquo;{fallback.text}&rdquo;
+                </blockquote>
+                <p className="mt-4 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+                  &mdash; {fallback.author}
+                </p>
+              </>
+            );
+          })()
         ) : (
           <>
             <blockquote className="font-serif text-2xl font-medium leading-relaxed text-foreground md:text-3xl">

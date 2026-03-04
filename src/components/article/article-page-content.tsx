@@ -14,7 +14,7 @@ import { TableOfContents } from "@/components/article/table-of-contents";
 import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
-import { HiOutlineHandThumbUp, HiOutlineBookmark } from "react-icons/hi2";
+import { HiOutlineHandThumbUp, HiOutlineBookmark, HiOutlinePencilSquare } from "react-icons/hi2";
 import toast from "react-hot-toast";
 import { SITE_URL } from "@/lib/constants";
 
@@ -104,7 +104,7 @@ export function ArticlePageContent({ slug }: Props) {
             </p>
           )}
 
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex items-center justify-between gap-4">
             <Link
               href={`/u/${article.author.username}`}
               className="flex items-center gap-3"
@@ -126,6 +126,19 @@ export function ArticlePageContent({ slug }: Props) {
             </Link>
 
             <div className="flex items-center gap-2">
+              {user && user.id === article.author.id && (
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                >
+                  <Link href={`/write?edit=${article.slug}`}>
+                    <HiOutlinePencilSquare className="h-4 w-4" />
+                    Edit
+                  </Link>
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={handleClap} className="gap-1">
                 <HiOutlineHandThumbUp className="h-4 w-4" />
                 {article.claps}
