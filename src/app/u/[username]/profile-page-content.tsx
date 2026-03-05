@@ -70,7 +70,7 @@ export function ProfilePageContent({username}: { username: string }) {
     };
 
     const handleSaveProfile = async () => {
-        const {githubUrl, linkedinUrl, websiteUrl} = editForm;
+        const {githubUrl, linkedinUrl, websiteUrl, avatarUrl} = editForm;
 
         const isValidUrl = (value?: string | null, mustContain?: string) => {
             if (!value) return true;
@@ -90,6 +90,11 @@ export function ProfilePageContent({username}: { username: string }) {
         }
         if (!isValidUrl(websiteUrl)) {
             toast.error("Website URL should start with http:// or https://");
+            return;
+        }
+
+        if (avatarUrl && avatarUrl.trim().startsWith("data:")) {
+            toast.error("Avatar URL should be an http(s) image link, not a base64 data: URL.");
             return;
         }
 

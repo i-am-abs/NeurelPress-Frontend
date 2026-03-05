@@ -11,6 +11,7 @@ const nextConfig = {
             {protocol: 'https', hostname: '**.googleusercontent.com'},
             {protocol: 'https', hostname: '**.githubusercontent.com'},
             {protocol: 'https', hostname: 'assets.neuralpress.dev'},
+            {protocol: 'https', hostname: 'miro.medium.com'},
         ],
     },
     experimental: {

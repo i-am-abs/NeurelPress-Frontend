@@ -70,6 +70,8 @@ function WritePageInner() {
 
     // Real-time save: debounced auto-save when editing existing draft (skip initial load)
     const isInitialLoad = useRef(true);
+    const autoSaveDependencies = `${form.title}|${form.content}|${form.summary}|${form.coverImage}|${form.tagSlugs?.join(",")}|${form.seoTitle}|${form.seoDescription}`;
+    
     useEffect(() => {
         if (isInitialLoad.current && editArticle) {
             isInitialLoad.current = false;
@@ -94,7 +96,7 @@ function WritePageInner() {
         return () => {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         };
-    }, [editSlug, form.title, form.content, form.summary, form.coverImage, form.tagSlugs, form.seoTitle, form.seoDescription, editArticle]);
+    }, [editSlug, autoSaveDependencies, editArticle]);
 
     const {data: allTags} = useQuery({
         queryKey: ["all-tags"],
@@ -113,10 +115,13 @@ function WritePageInner() {
                 if (newSlugs.length) {
                     setForm((prev) => ({...prev, tagSlugs: [...(prev.tagSlugs || []), ...newSlugs]}));
                     setLastAiTags(newSlugs);
+                    // Auto-clear the suggestion highlight after 5 seconds
+                    setTimeout(() => setLastAiTags([]), 5000);
                 }
                 toast.success(newSlugs.length ? "Tags suggested." : "No new matching tags. Add from the list below.");
             } else if (data?.length) {
                 setLastAiTags(data);
+                setTimeout(() => setLastAiTags([]), 5000);
                 toast.success("Tags suggested. Add them from the tag list below.");
             }
         } catch {
@@ -288,11 +293,20 @@ function WritePageInner() {
             } else {
                 await articleApi.update(slug, form);
             }
-            await articleApi.publish(slug);
-            toast.success("Article published!");
+            const { data: publishedArticle } = await articleApi.publish(slug);
+            if (publishedArticle.status !== "PUBLISHED") {
+                console.warn("Article status is not PUBLISHED:", publishedArticle.status);
+                toast.error("Failed to publish article - invalid status");
+                return;
+            }
+            toast.success("Article published successfully!");
+            // Small delay to ensure DB is refreshed
+            await new Promise(resolve => setTimeout(resolve, 500));
             router.push(`/u/${user?.username}/${slug}`);
         } catch (err: unknown) {
-            toast.error(getApiErrorMessage(err, "Failed to publish"));
+            const errorMsg = getApiErrorMessage(err, "Failed to publish");
+            console.error("Publish error:", err);
+            toast.error(errorMsg);
         } finally {
             setPublishing(false);
         }
@@ -301,24 +315,61 @@ function WritePageInner() {
     // Keyboard shortcuts (macOS: metaKey, Windows: ctrlKey)
     const handleEditorKeyDown = (e: React.KeyboardEvent) => {
         const mod = e.metaKey || e.ctrlKey;
+        const shift = e.shiftKey;
+        
+        // Ctrl+B: Bold
         if (mod && e.key.toLowerCase() === "b") {
             e.preventDefault();
             applyFormatting("bold");
             return;
         }
+        
+        // Ctrl+I: Italic
         if (mod && e.key.toLowerCase() === "i") {
             e.preventDefault();
             applyFormatting("italic");
             return;
         }
+        
+        // Ctrl+U: Underline (strikethrough)
         if (mod && e.key.toLowerCase() === "u") {
             e.preventDefault();
             applyFormatting("underline");
             return;
         }
+        
+        // Ctrl+S: Save Draft
         if (mod && e.key.toLowerCase() === "s") {
             e.preventDefault();
             void handleSave();
+            return;
+        }
+        
+        // Ctrl+Alt+S: Publish
+        if (mod && e.altKey && e.key.toLowerCase() === "s") {
+            e.preventDefault();
+            void handlePublish();
+            return;
+        }
+        
+        // Ctrl+K: Link
+        if (mod && e.key.toLowerCase() === "k") {
+            e.preventDefault();
+            applyFormatting("link");
+            return;
+        }
+        
+        // Ctrl+`: Code
+        if (mod && e.key === "`") {
+            e.preventDefault();
+            applyFormatting("code");
+            return;
+        }
+        
+        // Ctrl+Shift+L: Quote
+        if (mod && shift && e.key.toLowerCase() === "l") {
+            e.preventDefault();
+            applyFormatting("quote");
             return;
         }
     };
@@ -384,15 +435,23 @@ function WritePageInner() {
                 {/* Tags */}
                 <div>
                     <p className="mb-2 text-sm font-medium">Tags</p>
+                    {lastAiTags.length > 0 && (
+                        <div className="mb-3 rounded-md bg-blue-50 p-2 text-xs text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                            ✨ AI suggested: {lastAiTags.map(slug => allTags?.find(t => t.slug === slug)?.name).filter(Boolean).join(", ")}
+                        </div>
+                    )}
                     <div className="flex flex-wrap gap-2">
                         {allTags?.map((tag) => (
                             <Badge
                                 key={tag.id}
                                 variant={form.tagSlugs?.includes(tag.slug) ? "default" : "outline"}
-                                className="cursor-pointer"
+                                className={`cursor-pointer ${
+                                    lastAiTags.includes(tag.slug) ? "ring-2 ring-blue-400 dark:ring-blue-500" : ""
+                                }`}
                                 onClick={() => toggleTag(tag.slug)}
                             >
                                 {tag.name}
+                                {lastAiTags.includes(tag.slug) && <span className="ml-1">✨</span>}
                             </Badge>
                         ))}
                     </div>
