@@ -12,6 +12,10 @@ const nextConfig = {
             {protocol: 'https', hostname: '**.githubusercontent.com'},
             {protocol: 'https', hostname: 'assets.neuralpress.dev'},
             {protocol: 'https', hostname: 'miro.medium.com'},
+            // dev.to dynamic images (covers etc.)
+            {protocol: 'https', hostname: 'media2.dev.to'},
+            // Fallback for direct S3-hosted dev.to assets if needed
+            {protocol: 'https', hostname: 'dev-to-uploads.s3.amazonaws.com'},
         ],
     },
     experimental: {

@@ -1,5 +1,6 @@
 "use client";
 
+import {useState} from "react";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import {articleApi, bookmarkApi} from "@/lib/api";
 import {useAuth} from "@/hooks/use-auth";
@@ -27,12 +28,18 @@ export function ArticlePageContent({slug}: Props) {
     const queryClient = useQueryClient();
     const progress = useReadingProgress();
 
+    const [hasClapped, setHasClapped] = useState(false);
+
     const {data: article, isLoading} = useQuery({
         queryKey: ["article", slug],
         queryFn: () => articleApi.getBySlug(slug).then((r) => r.data),
     });
 
     const handleClap = async () => {
+        if (hasClapped) {
+            toast.error("You already clapped for this article");
+            return;
+        }
         if (!user) {
             toast.error("Sign in to clap");
             return;
@@ -40,6 +47,7 @@ export function ArticlePageContent({slug}: Props) {
         try {
             await articleApi.clap(slug);
             await queryClient.invalidateQueries({queryKey: ["article", slug]});
+            setHasClapped(true);
             toast.success("Clapped!");
         } catch (err: unknown) {
             const status = (err as { response?: { status?: number } })?.response?.status;
@@ -147,8 +155,16 @@ export function ArticlePageContent({slug}: Props) {
                                     </Link>
                                 </Button>
                             )}
-                            <Button variant="ghost" size="sm" onClick={handleClap} className="gap-1">
-                                <HiOutlineHandThumbUp className="h-4 w-4"/>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleClap}
+                                disabled={hasClapped}
+                                className="gap-1"
+                            >
+                                <HiOutlineHandThumbUp
+                                    className={`h-4 w-4 ${hasClapped ? "text-primary" : ""}`}
+                                />
                                 {article.claps}
                             </Button>
                             <Button variant="ghost" size="sm" onClick={handleBookmark}>

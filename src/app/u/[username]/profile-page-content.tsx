@@ -72,6 +72,14 @@ export function ProfilePageContent({username}: { username: string }) {
     const handleSaveProfile = async () => {
         const {githubUrl, linkedinUrl, websiteUrl, avatarUrl} = editForm;
 
+        const normalizeUrl = (value?: string | null) => {
+            if (!value) return null;
+            const v = value.trim();
+            if (!v) return null;
+            if (/^https?:\/\//i.test(v)) return v;
+            return `https://${v}`;
+        };
+
         const isValidUrl = (value?: string | null, mustContain?: string) => {
             if (!value) return true;
             const v = value.trim();
@@ -80,15 +88,19 @@ export function ProfilePageContent({username}: { username: string }) {
             return mustContain ? v.toLowerCase().includes(mustContain) : true;
         };
 
-        if (!isValidUrl(githubUrl, "github.com")) {
+        const normalizedGithub = normalizeUrl(githubUrl);
+        const normalizedLinkedin = normalizeUrl(linkedinUrl);
+        const normalizedWebsite = normalizeUrl(websiteUrl);
+
+        if (!isValidUrl(normalizedGithub, "github.com")) {
             toast.error("GitHub URL should start with https:// and contain github.com");
             return;
         }
-        if (!isValidUrl(linkedinUrl, "linkedin.com")) {
+        if (!isValidUrl(normalizedLinkedin, "linkedin.com")) {
             toast.error("LinkedIn URL should start with https:// and contain linkedin.com");
             return;
         }
-        if (!isValidUrl(websiteUrl)) {
+        if (!isValidUrl(normalizedWebsite)) {
             toast.error("Website URL should start with http:// or https://");
             return;
         }
@@ -98,8 +110,15 @@ export function ProfilePageContent({username}: { username: string }) {
             return;
         }
 
+        const payload: Partial<User> = {
+            ...editForm,
+            githubUrl: normalizedGithub,
+            linkedinUrl: normalizedLinkedin,
+            websiteUrl: normalizedWebsite,
+        };
+
         try {
-            await userApi.updateProfile(editForm);
+            await userApi.updateProfile(payload);
             await queryClient.invalidateQueries({queryKey: ["profile", username]});
             toast.success("Profile updated");
             setEditOpen(false);
