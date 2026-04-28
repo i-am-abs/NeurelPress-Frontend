@@ -37,11 +37,29 @@ function normalizeApiUrl(rawUrl: string): string {
 }
 
 export function getApiBaseUrl(): string {
-    const base = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080/api";
+    const configured = process.env.NEXT_PUBLIC_API_URL;
+    if (configured) {
+        return normalizeApiUrl(configured);
+    }
+
+    // Production-safe fallback:
+    // - browser: call same-origin backend proxy/domain (/api)
+    // - server: keep local dev default for local builds
+    if (typeof window !== "undefined") {
+        return normalizeApiUrl(`${window.location.origin}/api`);
+    }
+    const base = "http://127.0.0.1:8080/api";
     return normalizeApiUrl(base);
 }
 
 export function getOAuthBaseUrl(): string {
-    const oauthBase = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://127.0.0.1:8080";
+    const configured = process.env.NEXT_PUBLIC_API_URL;
+    if (configured) {
+        return normalizeApiUrl(configured.replace("/api", ""));
+    }
+    if (typeof window !== "undefined") {
+        return normalizeApiUrl(window.location.origin);
+    }
+    const oauthBase = "http://127.0.0.1:8080";
     return normalizeApiUrl(oauthBase);
 }
