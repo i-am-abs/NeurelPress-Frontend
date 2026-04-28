@@ -1,7 +1,4 @@
 import createMDX from '@next/mdx';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeSlug from 'rehype-slug';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -24,10 +21,10 @@ const nextConfig = {
 };
 
 const withMDX = createMDX({
-    options: {
-        remarkPlugins: [remarkGfm],
-        rehypePlugins: [rehypeHighlight, rehypeSlug],
-    },
+    // Keep MDX enabled with default compiler options.
+    // Turbopack in Next 16 requires loader options to be serializable,
+    // and direct plugin function references break dev startup.
+    options: {},
 });
 
 export default withMDX(nextConfig);

@@ -39,6 +39,7 @@ export function HeroQuote() {
         queryFn: () => quoteApi.today().then((r) => r.data),
         staleTime: STALE_TIME_LONG,
     });
+    const hasUsableQuote = Boolean(quote?.text?.trim() && quote?.author?.trim());
 
     return (
         <section className="relative overflow-hidden py-16 text-center md:py-24">
@@ -57,7 +58,7 @@ export function HeroQuote() {
                         <Skeleton className="mx-auto h-8 w-1/2"/>
                         <Skeleton className="mx-auto mt-4 h-5 w-40"/>
                     </div>
-                ) : !quote ? (
+                ) : !hasUsableQuote ? (
                     (() => {
                         const idx =
                             FALLBACK_QUOTES.length === 0

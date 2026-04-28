@@ -34,8 +34,8 @@ export default function AboutPage() {
           </li>
           <li>
             <span className="font-medium text-foreground">Use AI as an editor</span> —
-            get suggested titles, summaries, and tags powered by Gemini or
-            Mistral, then refine them before publishing.
+            get suggested titles, summaries, and tags powered by Gemini, then
+            refine them before publishing.
           </li>
           <li>
             <span className="font-medium text-foreground">Build your technical profile</span>{" "}

@@ -12,6 +12,7 @@ import {Badge} from "@/components/ui/badge";
 import toast from "react-hot-toast";
 import {getApiErrorMessage} from "@/lib/api-error";
 import type {ArticleRequest} from "@/types";
+import {useArticleAutoSave} from "@/hooks/use-article-auto-save";
 
 export default function WritePage() {
     return (
@@ -45,7 +46,6 @@ function WritePageInner() {
     const [lastAiSummary, setLastAiSummary] = useState<string | null>(null);
     const [lastAiTags, setLastAiTags] = useState<string[]>([]);
     const contentRef = useRef<HTMLTextAreaElement | null>(null);
-    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const {data: editArticle} = useQuery({
         queryKey: ["edit-article", editSlug],
@@ -68,35 +68,13 @@ function WritePageInner() {
         }
     }, [editArticle]);
 
-    // Real-time save: debounced auto-save when editing existing draft (skip initial load)
-    const isInitialLoad = useRef(true);
-    const autoSaveDependencies = `${form.title}|${form.content}|${form.summary}|${form.coverImage}|${form.tagSlugs?.join(",")}|${form.seoTitle}|${form.seoDescription}`;
-    
-    useEffect(() => {
-        if (isInitialLoad.current && editArticle) {
-            isInitialLoad.current = false;
-            return;
-        }
-        if (!editSlug || !form.title?.trim() || !form.content?.trim()) return;
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = setTimeout(() => {
-            setLastSaved("saving");
-            setSaving(true);
-            articleApi.update(editSlug, form)
-                .then(() => {
-                    setLastSaved("saved");
-                    setTimeout(() => setLastSaved("idle"), 2000);
-                })
-                .catch(() => toast.error("Auto-save failed"))
-                .finally(() => {
-                    setSaving(false);
-                    saveTimeoutRef.current = null;
-                });
-        }, 2000);
-        return () => {
-            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        };
-    }, [editSlug, autoSaveDependencies, editArticle]);
+    useArticleAutoSave({
+        editSlug,
+        form,
+        editArticleLoaded: !!editArticle,
+        setSaving,
+        setLastSaved,
+    });
 
     const {data: allTags} = useQuery({
         queryKey: ["all-tags"],

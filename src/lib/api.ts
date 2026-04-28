@@ -17,6 +17,13 @@ const api = axios.create({
     headers: {"Content-Type": "application/json"},
 });
 
+function getRequestUrl(config?: InternalAxiosRequestConfig | null): string {
+    if (!config) return "unknown-url";
+    const base = config.baseURL ?? "";
+    const url = config.url ?? "";
+    return `${base}${url}` || "unknown-url";
+}
+
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     if (typeof window !== "undefined") {
         const token = localStorage.getItem(AUTH_TOKEN_KEY);
@@ -53,6 +60,8 @@ api.interceptors.response.use(
     },
     async (error: AxiosError) => {
         const originalRequest: any = error.config;
+        const requestMethod = originalRequest?.method?.toUpperCase() ?? "UNKNOWN";
+        const requestUrl = getRequestUrl(originalRequest);
 
         if (error.response?.status === 401 && !originalRequest?._retry) {
             originalRequest._retry = true;
@@ -82,18 +91,33 @@ api.interceptors.response.use(
                             window.location.href = "/login";
                         }
                     }
+                } else {
+                    localStorage.removeItem(AUTH_TOKEN_KEY);
+                    localStorage.removeItem(REFRESH_TOKEN_KEY);
+                    if (typeof window !== "undefined") {
+                        window.location.href = "/login";
+                    }
                 }
             }
         }
 
         if (process.env.NODE_ENV !== "production") {
-            console.error(
-                "[API error]",
-                originalRequest?.method?.toUpperCase(),
-                `${originalRequest?.baseURL}${originalRequest?.url}`,
-                error.response?.status,
-                error.response?.data
-            );
+            if (error.response) {
+                console.error(
+                    "[API error]",
+                    requestMethod,
+                    requestUrl,
+                    error.response.status,
+                    error.response.data
+                );
+            } else {
+                console.error(
+                    "[API network error]",
+                    requestMethod,
+                    requestUrl,
+                    error.message
+                );
+            }
         }
 
         return Promise.reject(error);
@@ -130,7 +154,7 @@ export const authApi = {
 
 export const articleApi = {
     list: (page = 0, size = 12) =>
-        api.get<PageResponse<ArticleSummary>>("/articles", {params: {page, size}}),
+        api.get<PageResponse<ArticleSummary>>("/articles/latest", {params: {page, size}}),
 
     getBySlug: (slug: string) => api.get<Article>(`/articles/${slug}`),
 
@@ -223,6 +247,17 @@ export const aiApi = {
 
     suggestSummary: (data: { content: string }) =>
         api.post<{ summary: string }>("/ai/suggest-summary", data),
+};
+
+export const uploadApi = {
+    uploadImage: (file: File, folder: string = "uploads") => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("folder", folder);
+        return api.post<{ url: string }>("/upload/image", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+    },
 };
 
 export default api;

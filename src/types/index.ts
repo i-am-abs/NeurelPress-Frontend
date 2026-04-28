@@ -1,3 +1,5 @@
+export type AuthProviderType = "LOCAL" | "GOOGLE" | "GITHUB";
+
 export interface User {
     id: string;
     username: string;
@@ -7,6 +9,10 @@ export interface User {
     bio: string | null;
     avatarUrl: string | null;
     role: "USER" | "ADMIN";
+    /** How the account was created / primary identity (stored in DB). */
+    authProvider: AuthProviderType;
+    /** Allowed methods: LOCAL → password, otp; OAuth → google or github. */
+    allowedLoginMethods: string[];
     verified: boolean;
     followersCount: number;
     followingCount: number;
@@ -16,6 +22,7 @@ export interface User {
     techTags: string | null;
     publishedArticleCount?: number;
     createdAt: string;
+    lastSignInAt: string | null;
 }
 
 export interface AuthorSummary {
