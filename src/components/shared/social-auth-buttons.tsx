@@ -1,24 +1,103 @@
 "use client";
 
+import {useCallback, useEffect, useRef, useState} from "react";
+import Script from "next/script";
+import {useRouter} from "next/navigation";
+import toast from "react-hot-toast";
 import {Button} from "@/components/ui/button";
 import {Separator} from "@/components/ui/separator";
 import {getOAuthBaseUrl} from "@/lib/constants";
+import {authApi} from "@/lib/api";
+import {useAuthStore} from "@/store/auth-store";
+import {getApiErrorMessage} from "@/lib/api-error";
+import {analytics} from "@/lib/analytics";
 import {FaGithub} from "react-icons/fa";
 import {FcGoogle} from "react-icons/fc";
+
+declare global {
+    interface Window {
+        google?: {
+            accounts: {
+                id: {
+                    initialize: (cfg: {
+                        client_id: string;
+                        callback: (resp: { credential: string }) => void;
+                        ux_mode?: "popup" | "redirect";
+                        auto_select?: boolean;
+                    }) => void;
+                    prompt: () => void;
+                    renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void;
+                };
+            };
+        };
+    }
+}
 
 interface SocialAuthButtonsProps {
     separatorText?: string;
 }
 
 const githubOAuthEnabled = process.env.NEXT_PUBLIC_ENABLE_GITHUB_OAUTH === "true";
+const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+const useGisFlow = Boolean(googleClientId);
 
-export function SocialAuthButtons({
-                                      separatorText = "or",
-                                  }: SocialAuthButtonsProps) {
+export function SocialAuthButtons({separatorText = "or"}: SocialAuthButtonsProps) {
     const oauthBase = getOAuthBaseUrl();
+    const router = useRouter();
+    const login = useAuthStore((s) => s.login);
+    const [scriptReady, setScriptReady] = useState(false);
+    const [pending, setPending] = useState(false);
+    const initialised = useRef(false);
+
+    const handleCredential = useCallback(
+        async (idToken: string) => {
+            setPending(true);
+            try {
+                const {data} = await authApi.googleSignIn(idToken);
+                login(data.user, data.accessToken, data.refreshToken);
+                void analytics.track({eventName: "auth_login", metadata: {provider: "google"}});
+                toast.success("Signed in with Google");
+                router.push("/dashboard");
+            } catch (err) {
+                toast.error(getApiErrorMessage(err, "Google sign-in failed"));
+            } finally {
+                setPending(false);
+            }
+        },
+        [login, router]
+    );
+
+    useEffect(() => {
+        if (!useGisFlow || !scriptReady || initialised.current) return;
+        if (!window.google?.accounts?.id) return;
+        window.google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: ({credential}) => void handleCredential(credential),
+            ux_mode: "popup",
+            auto_select: false,
+        });
+        initialised.current = true;
+    }, [scriptReady, handleCredential]);
+
+    const handleGoogleClick = () => {
+        if (useGisFlow && window.google?.accounts?.id && initialised.current) {
+            window.google.accounts.id.prompt();
+            return;
+        }
+        // Fallback: server-driven OAuth2 redirect (works without GIS).
+        window.location.href = `${oauthBase}/oauth2/authorization/google`;
+    };
 
     return (
         <>
+            {useGisFlow && (
+                <Script
+                    src="https://accounts.google.com/gsi/client"
+                    strategy="afterInteractive"
+                    onLoad={() => setScriptReady(true)}
+                />
+            )}
+
             <div
                 className={
                     githubOAuthEnabled
@@ -29,14 +108,14 @@ export function SocialAuthButtons({
                 <Button
                     variant="outline"
                     type="button"
+                    disabled={pending}
+                    onClick={handleGoogleClick}
                     className="h-11 gap-2 border border-border bg-background font-normal shadow-sm hover:bg-muted/40"
-                    asChild
                 >
-                    <a href={`${oauthBase}/oauth2/authorization/google`}>
-                        <FcGoogle className="size-[18px] shrink-0" aria-hidden/>
-                        <span>Google</span>
-                    </a>
+                    <FcGoogle className="size-[18px] shrink-0" aria-hidden/>
+                    <span>{pending ? "Signing in…" : "Continue with Google"}</span>
                 </Button>
+
                 {githubOAuthEnabled ? (
                     <Button
                         variant="outline"

@@ -1,4 +1,4 @@
-import axios, {AxiosError, InternalAxiosRequestConfig} from "axios";
+import axios, {AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig} from "axios";
 import type {
     Article,
     ArticleRequest,
@@ -10,127 +10,114 @@ import type {
     Tag,
     User,
 } from "@/types";
-import {AUTH_TOKEN_KEY, getApiBaseUrl, REFRESH_TOKEN_KEY,} from "@/lib/constants";
+import {AUTH_TOKEN_KEY, getApiBaseUrl, REFRESH_TOKEN_KEY} from "@/lib/constants";
 
+/**
+ * Singleton axios instance.
+ *
+ * - Bearer token attached automatically when present.
+ * - On 401 we attempt a single refresh, then queue concurrent in-flight
+ *   requests so we don't hammer `/auth/refresh` N times.
+ * - Failures fall back to a clean logout + redirect to /login.
+ */
 const api = axios.create({
     baseURL: getApiBaseUrl(),
     headers: {"Content-Type": "application/json"},
+    timeout: 15000,
 });
 
-function getRequestUrl(config?: InternalAxiosRequestConfig | null): string {
-    if (!config) return "unknown-url";
-    const base = config.baseURL ?? "";
-    const url = config.url ?? "";
-    return `${base}${url}` || "unknown-url";
+type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };
+
+let isRefreshing = false;
+let pendingQueue: Array<(token: string | null) => void> = [];
+
+function flushQueue(token: string | null) {
+    pendingQueue.forEach((cb) => cb(token));
+    pendingQueue = [];
+}
+
+function setTokens(access: string, refresh: string | null) {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(AUTH_TOKEN_KEY, access);
+    if (refresh) localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+}
+
+function clearTokens() {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     if (typeof window !== "undefined") {
         const token = localStorage.getItem(AUTH_TOKEN_KEY);
-
-        if (token) {
-            config.headers.set("Authorization", `Bearer ${token}`);
-        }
+        if (token) config.headers.set("Authorization", `Bearer ${token}`);
     }
-
-    if (process.env.NODE_ENV !== "production") {
-        console.log(
-            "[API request]",
-            config.method?.toUpperCase(),
-            `${config.baseURL}${config.url}`,
-            {params: config.params}
-        );
-    }
-
     return config;
 });
 
 api.interceptors.response.use(
-    (response) => {
-        if (process.env.NODE_ENV !== "production") {
-            console.log(
-                "[API response]",
-                response.config.method?.toUpperCase(),
-                `${response.config.baseURL}${response.config.url}`,
-                response.status
-            );
-        }
-
-        return response;
-    },
+    (response) => response,
     async (error: AxiosError) => {
-        const originalRequest: any = error.config;
-        const requestMethod = originalRequest?.method?.toUpperCase() ?? "UNKNOWN";
-        const requestUrl = getRequestUrl(originalRequest);
+        const original = error.config as RetriableConfig | undefined;
+        const isUnauthorized = error.response?.status === 401;
 
-        if (error.response?.status === 401 && !originalRequest?._retry) {
-            originalRequest._retry = true;
-
-            if (typeof window !== "undefined") {
-                const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-
-                if (refreshToken) {
-                    try {
-                        const {data} = await axios.post<AuthResponse>(
-                            `${api.defaults.baseURL}/auth/refresh`,
-                            {refreshToken}
-                        );
-
-                        localStorage.setItem(AUTH_TOKEN_KEY, data.accessToken);
-                        localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
-
-                        originalRequest.headers = originalRequest.headers || {};
-                        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
-
-                        return api(originalRequest);
-                    } catch {
-                        localStorage.removeItem(AUTH_TOKEN_KEY);
-                        localStorage.removeItem(REFRESH_TOKEN_KEY);
-
-                        if (typeof window !== "undefined") {
-                            window.location.href = "/login";
-                        }
-                    }
-                } else {
-                    localStorage.removeItem(AUTH_TOKEN_KEY);
-                    localStorage.removeItem(REFRESH_TOKEN_KEY);
-                    if (typeof window !== "undefined") {
-                        window.location.href = "/login";
-                    }
-                }
-            }
+        if (!isUnauthorized || !original || original._retry) {
+            return Promise.reject(error);
         }
 
-        if (process.env.NODE_ENV !== "production") {
-            if (error.response) {
-                console.error(
-                    "[API error]",
-                    requestMethod,
-                    requestUrl,
-                    error.response.status,
-                    error.response.data
-                );
-            } else {
-                console.error(
-                    "[API network error]",
-                    requestMethod,
-                    requestUrl,
-                    error.message
-                );
+        original._retry = true;
+        const refreshToken = typeof window !== "undefined"
+            ? localStorage.getItem(REFRESH_TOKEN_KEY)
+            : null;
+
+        if (!refreshToken) {
+            clearTokens();
+            if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+                window.location.href = "/login";
             }
+            return Promise.reject(error);
         }
 
-        return Promise.reject(error);
+        if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+                pendingQueue.push((newToken) => {
+                    if (!newToken) {
+                        reject(error);
+                        return;
+                    }
+                    original.headers = {...(original.headers ?? {}), Authorization: `Bearer ${newToken}`};
+                    resolve(api(original));
+                });
+            });
+        }
+
+        isRefreshing = true;
+        try {
+            const {data} = await axios.post<AuthResponse>(
+                `${api.defaults.baseURL}/auth/refresh`,
+                {refreshToken}
+            );
+            setTokens(data.accessToken, data.refreshToken);
+            flushQueue(data.accessToken);
+            original.headers = {...(original.headers ?? {}), Authorization: `Bearer ${data.accessToken}`};
+            return api(original);
+        } catch (refreshErr) {
+            flushQueue(null);
+            clearTokens();
+            if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+                window.location.href = "/login";
+            }
+            return Promise.reject(refreshErr);
+        } finally {
+            isRefreshing = false;
+        }
     }
 );
 
 export const authApi = {
-    register: (data: {
-        username: string;
-        email: string;
-        password: string;
-        displayName?: string;
-    }) => api.post<AuthResponse>("/auth/register", data),
+    register: (data: { username: string; email: string; password: string; displayName?: string }) =>
+        api.post<AuthResponse>("/auth/register", data),
 
     login: (data: { email: string; password: string }) =>
         api.post<AuthResponse>("/auth/login", data),
@@ -141,6 +128,9 @@ export const authApi = {
     loginWithOtp: (data: { email: string; otp: string }) =>
         api.post<AuthResponse>("/auth/login-otp", data),
 
+    googleSignIn: (idToken: string) =>
+        api.post<AuthResponse>("/auth/google", {idToken}),
+
     me: () => api.get<User>("/auth/me"),
 
     logout: () => api.post("/auth/logout"),
@@ -150,6 +140,12 @@ export const authApi = {
 
     resendVerification: () =>
         api.post<{ message: string }>("/auth/resend-verification"),
+
+    forgotPassword: (email: string) =>
+        api.post<{ message: string }>("/auth/forgot-password", {email}),
+
+    resetPassword: (token: string, newPassword: string) =>
+        api.post<{ message: string }>("/auth/reset-password", {token, newPassword}),
 };
 
 export const articleApi = {
@@ -159,19 +155,13 @@ export const articleApi = {
     getBySlug: (slug: string) => api.get<Article>(`/articles/${slug}`),
 
     getByTag: (tagSlug: string, page = 0, size = 12) =>
-        api.get<PageResponse<ArticleSummary>>(`/articles/tag/${tagSlug}`, {
-            params: {page, size},
-        }),
+        api.get<PageResponse<ArticleSummary>>(`/articles/tag/${tagSlug}`, {params: {page, size}}),
 
     getByAuthor: (authorId: string, page = 0, size = 12) =>
-        api.get<PageResponse<ArticleSummary>>(`/articles/author/${authorId}`, {
-            params: {page, size},
-        }),
+        api.get<PageResponse<ArticleSummary>>(`/articles/author/${authorId}`, {params: {page, size}}),
 
     getMyDrafts: (page = 0, size = 12) =>
-        api.get<PageResponse<ArticleSummary>>("/articles/me/drafts", {
-            params: {page, size},
-        }),
+        api.get<PageResponse<ArticleSummary>>("/articles/me/drafts", {params: {page, size}}),
 
     create: (data: ArticleRequest) => api.post<Article>("/articles", data),
 
@@ -211,9 +201,7 @@ export const bookmarkApi = {
     toggle: (slug: string) => api.post(`/bookmarks/${slug}`),
 
     list: (page = 0, size = 12) =>
-        api.get<PageResponse<ArticleSummary>>("/bookmarks", {
-            params: {page, size},
-        }),
+        api.get<PageResponse<ArticleSummary>>("/bookmarks", {params: {page, size}}),
 };
 
 export const userApi = {
@@ -229,9 +217,7 @@ export const userApi = {
         api.get<{ following: boolean }>(`/users/${userId}/following`),
 
     search: (query: string, page = 0, size = 12) =>
-        api.get<PageResponse<User>>("/users/search", {
-            params: {query, page, size},
-        }),
+        api.get<PageResponse<User>>("/users/search", {params: {query, page, size}}),
 };
 
 export const quoteApi = {
@@ -255,7 +241,7 @@ export const uploadApi = {
         formData.append("file", file);
         formData.append("folder", folder);
         return api.post<{ url: string }>("/upload/image", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
+            headers: {"Content-Type": "multipart/form-data"},
         });
     },
 };

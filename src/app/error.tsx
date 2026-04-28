@@ -2,6 +2,7 @@
 
 import {useEffect} from "react";
 import {Button} from "@/components/ui/button";
+import {analytics} from "@/lib/analytics";
 
 interface ErrorPageProps {
     error: Error & { digest?: string };
@@ -11,6 +12,11 @@ interface ErrorPageProps {
 export default function GlobalError({error, reset}: ErrorPageProps) {
     useEffect(() => {
         console.error("Unhandled error:", error);
+        void analytics.crash({
+            message: error.message,
+            exceptionType: error.name,
+            stackTrace: error.stack,
+        });
     }, [error]);
 
     return (
