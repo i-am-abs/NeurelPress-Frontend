@@ -223,6 +223,10 @@ export const userApi = {
 
 export const quoteApi = {
     today: () => api.get<Quote>("/quotes/today"),
+    random: () => api.get<Quote>("/quotes/random"),
+    randomByDomain: (domain: string) => api.get<Quote>(`/quotes/random/domain/${encodeURIComponent(domain)}`),
+    punchlineByDomain: (domain: string) => api.get<Quote>(`/quotes/punchline/domain/${encodeURIComponent(domain)}`),
+    frontScreen: () => api.get<Quote>("/quotes/random/front-screen"),
 };
 
 export const aiApi = {

@@ -4,7 +4,6 @@ import {useQuery} from "@tanstack/react-query";
 import {quoteApi} from "@/lib/api";
 import {motion} from "framer-motion";
 import {Skeleton} from "@/components/ui/skeleton";
-import {STALE_TIME_LONG} from "@/lib/constants";
 
 const FALLBACK_QUOTES = [
     {
@@ -35,9 +34,11 @@ const FALLBACK_QUOTES = [
 
 export function HeroQuote() {
     const {data: quote, isLoading} = useQuery({
-        queryKey: ["quote-of-day"],
-        queryFn: () => quoteApi.today().then((r) => r.data),
-        staleTime: STALE_TIME_LONG,
+        queryKey: ["front-screen-quote"],
+        queryFn: () => quoteApi.frontScreen().then((r) => r.data),
+        staleTime: 0,
+        refetchOnMount: "always",
+        refetchOnWindowFocus: false,
     });
     const hasUsableQuote = Boolean(quote?.text?.trim() && quote?.author?.trim());
 

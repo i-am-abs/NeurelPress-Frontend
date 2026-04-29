@@ -4,7 +4,7 @@ import {Suspense, useCallback, useEffect, useRef, useState} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
 import {useAuthGuard} from "@/hooks/use-auth-guard";
 import {useQuery} from "@tanstack/react-query";
-import {aiApi, articleApi, tagApi} from "@/lib/api";
+import {aiApi, articleApi, tagApi, uploadApi} from "@/lib/api";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
@@ -48,6 +48,9 @@ function WritePageInner() {
     const [tone, setTone] = useState("professional");
     const [toneAnalysis, setToneAnalysis] = useState<{ tone: string; confidence: number; notes: string } | null>(null);
     const contentRef = useRef<HTMLTextAreaElement | null>(null);
+    const coverImageInputRef = useRef<HTMLInputElement | null>(null);
+    const contentImageInputRef = useRef<HTMLInputElement | null>(null);
+    const [uploadingImage, setUploadingImage] = useState<"cover" | "content" | null>(null);
 
     const {data: editArticle} = useQuery({
         queryKey: ["edit-article", editSlug],
@@ -203,6 +206,31 @@ function WritePageInner() {
         }));
     };
 
+    const handleImageUpload = async (file: File, target: "cover" | "content") => {
+        setUploadingImage(target);
+        try {
+            const {data} = await uploadApi.uploadImage(file, "blogs");
+            if (!data?.url) {
+                toast.error("Image upload failed.");
+                return;
+            }
+            if (target === "cover") {
+                setForm((prev) => ({...prev, coverImage: data.url}));
+                toast.success("Cover image uploaded.");
+                return;
+            }
+
+            const alt = file.name.replace(/\.[^.]+$/, "") || "image";
+            const markdownImage = `\n![${alt}](${data.url})\n`;
+            setForm((prev) => ({...prev, content: (prev.content || "") + markdownImage}));
+            toast.success("Image uploaded and inserted.");
+        } catch (err: unknown) {
+            toast.error(getApiErrorMessage(err, "Image upload failed"));
+        } finally {
+            setUploadingImage(null);
+        }
+    };
+
     const applyFormatting = (type: "bold" | "italic" | "underline" | "h1" | "h2" | "h3" | "ul" | "ol" | "quote" | "code" | "image" | "link") => {
         const textarea = contentRef.current;
         if (!textarea) return;
@@ -260,11 +288,7 @@ function WritePageInner() {
                 next = wrapInline("`", "`");
                 break;
             case "image": {
-                const url = window.prompt("Image URL");
-                if (!url) return;
-                const alt = window.prompt("Alt text") || "image";
-                const imageSyntax = `![${alt}](${url})`;
-                next = value.slice(0, end) + `\n${imageSyntax}\n` + value.slice(end);
+                contentImageInputRef.current?.click();
                 break;
             }
             case "link": {
@@ -468,6 +492,44 @@ function WritePageInner() {
                     onChange={(e) => setForm({...form, coverImage: e.target.value})}
                     className="text-sm"
                 />
+                <div className="flex items-center gap-2">
+                    <input
+                        ref={coverImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                                void handleImageUpload(file, "cover");
+                            }
+                            e.currentTarget.value = "";
+                        }}
+                    />
+                    <input
+                        ref={contentImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                                void handleImageUpload(file, "content");
+                            }
+                            e.currentTarget.value = "";
+                        }}
+                    />
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={uploadingImage !== null}
+                        onClick={() => coverImageInputRef.current?.click()}
+                    >
+                        {uploadingImage === "cover" ? "Uploading..." : "Upload Cover to R2"}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Images are auto-compressed in backend before R2 upload.</span>
+                </div>
 
                 {/* Tags */}
                 <div>
