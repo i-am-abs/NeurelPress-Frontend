@@ -3,6 +3,7 @@ import {IBM_Plex_Serif, Inter, JetBrains_Mono} from "next/font/google";
 import {Providers} from "@/components/providers";
 import {Navbar} from "@/components/layout/navbar";
 import {Footer} from "@/components/layout/footer";
+import {Analytics} from "@vercel/analytics/next";
 import "./globals.css";
 
 const inter = Inter({
@@ -79,6 +80,7 @@ export default function RootLayout({
                 <main className="flex-1">{children}</main>
                 <Footer/>
             </div>
+            <Analytics/>
         </Providers>
         </body>
         </html>

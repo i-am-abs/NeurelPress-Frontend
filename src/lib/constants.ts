@@ -37,28 +37,28 @@ function normalizeApiUrl(rawUrl: string): string {
 }
 
 export function getApiBaseUrl(): string {
+    // Always use same-origin in browser so frontend can rely on Next rewrites.
+    if (typeof window !== "undefined") {
+        return normalizeApiUrl(`${window.location.origin}/api`);
+    }
+
     const configured = process.env.NEXT_PUBLIC_API_URL;
     if (configured) {
         return normalizeApiUrl(configured);
-    }
-
-    // Production-safe fallback:
-    // - browser: call same-origin backend proxy/domain (/api)
-    // - server: keep local dev default for local builds
-    if (typeof window !== "undefined") {
-        return normalizeApiUrl(`${window.location.origin}/api`);
     }
     const base = "http://127.0.0.1:8080/api";
     return normalizeApiUrl(base);
 }
 
 export function getOAuthBaseUrl(): string {
+    // Browser should use same-origin /oauth2 route, then Next rewrites proxy it.
+    if (typeof window !== "undefined") {
+        return normalizeApiUrl(window.location.origin);
+    }
+
     const configured = process.env.NEXT_PUBLIC_API_URL;
     if (configured) {
         return normalizeApiUrl(configured.replace("/api", ""));
-    }
-    if (typeof window !== "undefined") {
-        return normalizeApiUrl(window.location.origin);
     }
     const oauthBase = "http://127.0.0.1:8080";
     return normalizeApiUrl(oauthBase);

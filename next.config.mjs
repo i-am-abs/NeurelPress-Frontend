@@ -18,6 +18,34 @@ const nextConfig = {
     experimental: {
         optimizePackageImports: ['framer-motion', 'react-icons', 'date-fns'],
     },
+    async rewrites() {
+        const configuredApi = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
+        const fallbackApi = process.env.NODE_ENV === "production"
+            ? null
+            : "http://127.0.0.1:8080/api";
+        const apiBase = configuredApi || fallbackApi;
+
+        if (!apiBase) {
+            return [];
+        }
+
+        const backendOrigin = apiBase.replace(/\/api\/?$/, "");
+
+        return [
+            {
+                source: "/api/:path*",
+                destination: `${backendOrigin}/api/:path*`,
+            },
+            {
+                source: "/oauth2/:path*",
+                destination: `${backendOrigin}/oauth2/:path*`,
+            },
+            {
+                source: "/login/oauth2/:path*",
+                destination: `${backendOrigin}/login/oauth2/:path*`,
+            },
+        ];
+    },
 };
 
 const withMDX = createMDX({
