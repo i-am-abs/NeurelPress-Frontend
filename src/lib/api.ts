@@ -8,6 +8,7 @@ import type {
     PageResponse,
     Quote,
     Tag,
+    ToneAnalysisResponse,
     User,
 } from "@/types";
 import {AUTH_TOKEN_KEY, getApiBaseUrl, REFRESH_TOKEN_KEY} from "@/lib/constants";
@@ -233,6 +234,15 @@ export const aiApi = {
 
     suggestSummary: (data: { content: string }) =>
         api.post<{ summary: string }>("/ai/suggest-summary", data),
+
+    humanize: (data: { content: string }) =>
+        api.post<{ content: string }>("/ai/humanize", data),
+
+    analyzeTone: (data: { content: string }) =>
+        api.post<ToneAnalysisResponse>("/ai/analyze-tone", data),
+
+    generateByTone: (data: { content: string; tone: string }) =>
+        api.post<{ content: string }>("/ai/generate-by-tone", data),
 };
 
 export const uploadApi = {

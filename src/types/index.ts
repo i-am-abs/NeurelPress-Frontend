@@ -129,3 +129,9 @@ export interface ArticleRequest {
     seoDescription?: string;
     canonicalUrl?: string;
 }
+
+export interface ToneAnalysisResponse {
+    tone: string;
+    confidence: number;
+    notes: string;
+}

@@ -41,10 +41,12 @@ function WritePageInner() {
     const [saving, setSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<"idle" | "saving" | "saved">("idle");
     const [publishing, setPublishing] = useState(false);
-    const [aiLoading, setAiLoading] = useState<"tags" | "title" | "summary" | null>(null);
+    const [aiLoading, setAiLoading] = useState<"tags" | "title" | "summary" | "humanize" | "tone" | "tone-generate" | null>(null);
     const [lastAiTitle, setLastAiTitle] = useState<string | null>(null);
     const [lastAiSummary, setLastAiSummary] = useState<string | null>(null);
     const [lastAiTags, setLastAiTags] = useState<string[]>([]);
+    const [tone, setTone] = useState("professional");
+    const [toneAnalysis, setToneAnalysis] = useState<{ tone: string; confidence: number; notes: string } | null>(null);
     const contentRef = useRef<HTMLTextAreaElement | null>(null);
 
     const {data: editArticle} = useQuery({
@@ -138,6 +140,55 @@ function WritePageInner() {
             toast.success("Summary suggested.");
         } catch {
             toast.error("AI suggestion unavailable.");
+        } finally {
+            setAiLoading(null);
+        }
+    };
+
+    const handleHumanize = async () => {
+        if (!form.content) return;
+        setAiLoading("humanize");
+        try {
+            const {data} = await aiApi.humanize({content: form.content});
+            if (data?.content) {
+                setForm((prev) => ({...prev, content: data.content}));
+                toast.success("Content humanized.");
+            }
+        } catch {
+            toast.error("AI humanize unavailable.");
+        } finally {
+            setAiLoading(null);
+        }
+    };
+
+    const handleAnalyzeTone = async () => {
+        if (!form.content) return;
+        setAiLoading("tone");
+        try {
+            const {data} = await aiApi.analyzeTone({content: form.content});
+            setToneAnalysis(data);
+            if (data?.tone) {
+                setTone(data.tone);
+            }
+            toast.success("Tone analyzed.");
+        } catch {
+            toast.error("Tone analysis unavailable.");
+        } finally {
+            setAiLoading(null);
+        }
+    };
+
+    const handleGenerateByTone = async () => {
+        if (!form.content || !tone.trim()) return;
+        setAiLoading("tone-generate");
+        try {
+            const {data} = await aiApi.generateByTone({content: form.content, tone});
+            if (data?.content) {
+                setForm((prev) => ({...prev, content: data.content}));
+                toast.success("Content regenerated in selected tone.");
+            }
+        } catch {
+            toast.error("Tone generation unavailable.");
         } finally {
             setAiLoading(null);
         }
@@ -378,6 +429,14 @@ function WritePageInner() {
                             title="Suggest tags">
                         {aiLoading === "tags" ? "..." : "Tags"}
                     </Button>
+                    <Button variant="ghost" size="sm" onClick={handleHumanize} disabled={!!aiLoading || !form.content}
+                            title="Humanize content">
+                        {aiLoading === "humanize" ? "..." : "Humanize"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleAnalyzeTone} disabled={!!aiLoading || !form.content}
+                            title="Analyze tone">
+                        {aiLoading === "tone" ? "..." : "Tone"}
+                    </Button>
                     <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
                         {saving ? "Saving..." : "Save"}
                     </Button>
@@ -437,6 +496,25 @@ function WritePageInner() {
 
                 {/* Content editor (Markdown) */}
                 <div>
+                    <div className="mb-3 rounded-md border border-border p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Input
+                                value={tone}
+                                onChange={(e) => setTone(e.target.value)}
+                                placeholder="Tone (e.g. conversational, formal, witty)"
+                                className="h-8 max-w-sm text-xs"
+                            />
+                            <Button type="button" variant="outline" size="sm" onClick={handleGenerateByTone}
+                                    disabled={!!aiLoading || !form.content || !tone.trim()}>
+                                {aiLoading === "tone-generate" ? "..." : "Generate in Tone"}
+                            </Button>
+                        </div>
+                        {toneAnalysis && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                Detected tone: <span className="font-medium">{toneAnalysis.tone}</span> | Confidence: {Math.round((toneAnalysis.confidence || 0) * 100)}% | {toneAnalysis.notes}
+                            </p>
+                        )}
+                    </div>
                     <div className="mb-2 flex items-center justify-between">
                         <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-medium">Content (Markdown)</p>
