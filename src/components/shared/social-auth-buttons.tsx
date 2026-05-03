@@ -46,6 +46,7 @@ export function SocialAuthButtons({separatorText = "or"}: SocialAuthButtonsProps
     const router = useRouter();
     const login = useAuthStore((s) => s.login);
     const [scriptReady, setScriptReady] = useState(false);
+    const [gisReady, setGisReady] = useState(false);
     const [pending, setPending] = useState(false);
     const initialised = useRef(false);
 
@@ -77,14 +78,27 @@ export function SocialAuthButtons({separatorText = "or"}: SocialAuthButtonsProps
             auto_select: false,
         });
         initialised.current = true;
+        setGisReady(true);
     }, [scriptReady, handleCredential]);
 
     const handleGoogleClick = () => {
-        if (useGisFlow && window.google?.accounts?.id && initialised.current) {
-            window.google.accounts.id.prompt();
+        if (useGisFlow) {
+            if (!gisReady) {
+                toast.error("Google sign-in is still loading. Please try again in a moment.");
+                return;
+            }
+            window.google?.accounts?.id.prompt();
             return;
         }
-        // Fallback: server-driven OAuth2 redirect (works without GIS).
+        if (typeof window !== "undefined") {
+            const apiConfigured = Boolean(process.env.NEXT_PUBLIC_API_URL);
+            if (!apiConfigured && oauthBase === window.location.origin && process.env.NODE_ENV === "production") {
+                toast.error(
+                    "Google sign-in needs NEXT_PUBLIC_API_URL on Vercel pointing at your public backend (HTTPS)."
+                );
+                return;
+            }
+        }
         window.location.href = `${oauthBase}/oauth2/authorization/google`;
     };
 
@@ -108,7 +122,7 @@ export function SocialAuthButtons({separatorText = "or"}: SocialAuthButtonsProps
                 <Button
                     variant="outline"
                     type="button"
-                    disabled={pending}
+                    disabled={pending || (useGisFlow && !gisReady)}
                     onClick={handleGoogleClick}
                     className="h-11 gap-2 border border-border bg-background font-normal shadow-sm hover:bg-muted/40"
                 >

@@ -3,6 +3,7 @@
 import {Suspense, useEffect} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
 import {useAuthStore} from "@/store/auth-store";
+import {AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY} from "@/lib/constants";
 import {authApi} from "@/lib/api";
 
 function AuthCallbackInner() {
@@ -14,6 +15,12 @@ function AuthCallbackInner() {
         const token = searchParams.get("token");
         const refreshToken = searchParams.get("refreshToken");
         if (token) {
+            if (typeof window !== "undefined") {
+                localStorage.setItem(AUTH_TOKEN_KEY, token);
+                if (refreshToken) {
+                    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+                }
+            }
             authApi
                 .me()
                 .then((res) => {

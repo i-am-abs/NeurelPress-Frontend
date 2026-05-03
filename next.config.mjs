@@ -20,6 +20,12 @@ const nextConfig = {
     },
     async rewrites() {
         const configuredApi = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
+        if (process.env.VERCEL === "1" && !configuredApi) {
+            console.warn(
+                "[NeurelPress] Set NEXT_PUBLIC_API_URL on Vercel to your backend public HTTPS URL ending in /api " +
+                    "(never a private IP or localhost — Vercel cannot reach those)."
+            );
+        }
         const fallbackApi = process.env.NODE_ENV === "production"
             ? null
             : "http://127.0.0.1:8080/api";

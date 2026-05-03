@@ -37,8 +37,13 @@ function normalizeApiUrl(rawUrl: string): string {
 }
 
 export function getApiBaseUrl(): string {
-    // Always use same-origin in browser so frontend can rely on Next rewrites.
+    // Prefer explicit backend URL in browser when provided; otherwise
+    // fall back to same-origin /api for rewrite-based setups.
     if (typeof window !== "undefined") {
+        const configured = process.env.NEXT_PUBLIC_API_URL;
+        if (configured) {
+            return normalizeApiUrl(configured.replace(/\/$/, ""));
+        }
         return normalizeApiUrl(`${window.location.origin}/api`);
     }
 
@@ -51,8 +56,13 @@ export function getApiBaseUrl(): string {
 }
 
 export function getOAuthBaseUrl(): string {
-    // Browser should use same-origin /oauth2 route, then Next rewrites proxy it.
+    // Prefer explicit backend URL in browser when provided; otherwise
+    // use same-origin OAuth routes for rewrite-based setups.
     if (typeof window !== "undefined") {
+        const configured = process.env.NEXT_PUBLIC_API_URL;
+        if (configured) {
+            return normalizeApiUrl(configured.replace(/\/api\/?$/, ""));
+        }
         return normalizeApiUrl(window.location.origin);
     }
 
