@@ -1,6 +1,7 @@
 import {create} from "zustand";
 import type {User} from "@/types";
 import {AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY} from "@/lib/constants";
+import {supabase} from "@/lib/supabase";
 
 interface AuthState {
     user: User | null;
@@ -33,6 +34,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         if (typeof window !== "undefined") {
             localStorage.removeItem(AUTH_TOKEN_KEY);
             localStorage.removeItem(REFRESH_TOKEN_KEY);
+            void supabase.auth.signOut();
         }
         set({user: null, isAuthenticated: false});
     },

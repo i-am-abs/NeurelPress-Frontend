@@ -2,11 +2,12 @@ import {TagPageContent} from "./tag-page-content";
 import type {Metadata} from "next";
 
 interface TagPageProps {
-    params: { slug: string };
+    params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({params}: TagPageProps): Promise<Metadata> {
-    const tagName = params.slug
+    const resolvedParams = await params;
+    const tagName = resolvedParams.slug
         .replace(/-/g, " ")
         .replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -20,6 +21,7 @@ export async function generateMetadata({params}: TagPageProps): Promise<Metadata
     };
 }
 
-export default function TagPage({params}: TagPageProps) {
-    return <TagPageContent slug={params.slug}/>;
+export default async function TagPage({params}: TagPageProps) {
+    const resolvedParams = await params;
+    return <TagPageContent slug={resolvedParams.slug}/>;
 }

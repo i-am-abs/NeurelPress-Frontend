@@ -2,20 +2,21 @@ import {ArticlePageContent} from "@/components/article/article-page-content";
 import type {Metadata} from "next";
 
 interface ArticlePageProps {
-    params: { username: string; slug: string };
+    params: Promise<{ username: string; slug: string }>;
 }
 
 export async function generateMetadata({params}: ArticlePageProps): Promise<Metadata> {
+    const resolvedParams = await params;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
     try {
-        const res = await fetch(`${apiUrl}/articles/${params.slug}`, {
+        const res = await fetch(`${apiUrl}/articles/${resolvedParams.slug}`, {
             next: {revalidate: 60},
         });
         if (!res.ok) return {title: "Article Not Found"};
 
         const article = await res.json();
-        const username = params.username.replace("%40", "");
+        const username = resolvedParams.username.replace("%40", "");
 
         return {
             title: article.seoTitle || article.title,
@@ -48,6 +49,7 @@ export async function generateMetadata({params}: ArticlePageProps): Promise<Meta
     }
 }
 
-export default function ArticlePage({params}: ArticlePageProps) {
-    return <ArticlePageContent slug={params.slug}/>;
+export default async function ArticlePage({params}: ArticlePageProps) {
+    const resolvedParams = await params;
+    return <ArticlePageContent slug={resolvedParams.slug}/>;
 }

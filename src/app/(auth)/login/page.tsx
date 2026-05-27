@@ -11,6 +11,8 @@ import {useAuthStore} from "@/store/auth-store";
 import {authApi} from "@/lib/api";
 import {getApiErrorMessage} from "@/lib/api-error";
 import toast from "react-hot-toast";
+import {supabase} from "@/lib/supabase";
+import {AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY} from "@/lib/constants";
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
     oauth_email_registered:
@@ -46,17 +48,45 @@ function LoginPageContent() {
         setLoading(true);
         setError(null);
         try {
-            let data;
+            let session;
             if (mode === "password") {
-                const res = await authApi.login({email, password});
-                data = res.data;
+                const {data, error: authErr} = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+                if (authErr) throw authErr;
+                session = data.session;
                 toast.success("Welcome back!");
             } else {
-                const res = await authApi.loginWithOtp({email, otp});
-                data = res.data;
+                let {data, error: authErr} = await supabase.auth.verifyOtp({
+                    email,
+                    token: otp,
+                    type: "email",
+                });
+                if (authErr) {
+                    const {data: sData, error: sErr} = await supabase.auth.verifyOtp({
+                        email,
+                        token: otp,
+                        type: "signup",
+                    });
+                    if (sErr) throw authErr;
+                    data = sData;
+                }
+                session = data.session;
                 toast.success("Logged in with OTP");
             }
-            login(data.user, data.accessToken, data.refreshToken);
+
+            if (!session) {
+                throw new Error("No active session returned from authentication.");
+            }
+
+            // Sync tokens locally so authApi interceptors can inject the token correctly
+            localStorage.setItem(AUTH_TOKEN_KEY, session.access_token);
+            localStorage.setItem(REFRESH_TOKEN_KEY, session.refresh_token);
+
+            // Fetch MongoDB user details
+            const res = await authApi.me();
+            login(res.data, session.access_token, session.refresh_token);
             router.push("/dashboard");
         } catch (err: unknown) {
             const message = getApiErrorMessage(
@@ -76,7 +106,13 @@ function LoginPageContent() {
             return;
         }
         try {
-            await authApi.requestOtp({email});
+            const {error: otpErr} = await supabase.auth.signInWithOtp({
+                email,
+                options: {
+                    shouldCreateUser: false,
+                },
+            });
+            if (otpErr) throw otpErr;
             setOtpRequested(true);
             toast.success("If this email is registered, an OTP has been sent.");
         } catch (err: unknown) {

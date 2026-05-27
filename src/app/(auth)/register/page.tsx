@@ -10,6 +10,8 @@ import {useAuthStore} from "@/store/auth-store";
 import {authApi} from "@/lib/api";
 import {getApiErrorMessage} from "@/lib/api-error";
 import toast from "react-hot-toast";
+import {supabase} from "@/lib/supabase";
+import {AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY} from "@/lib/constants";
 
 export default function RegisterPage() {
     const [form, setForm] = useState({username: "", email: "", password: "", displayName: ""});
@@ -25,8 +27,33 @@ export default function RegisterPage() {
         try {
             // eslint-disable-next-line no-console
             console.log("[Register] submitting form", {...form, password: "***"});
-            const {data} = await authApi.register(form);
-            login(data.user, data.accessToken, data.refreshToken);
+            const {data: supabaseData, error: supabaseError} = await supabase.auth.signUp({
+                email: form.email,
+                password: form.password,
+                options: {
+                    data: {
+                        username: form.username,
+                        displayName: form.displayName,
+                    },
+                },
+            });
+            if (supabaseError) throw supabaseError;
+
+            const session = supabaseData.session;
+
+            if (!session) {
+                toast.success("Registration successful! Please check your email for a verification link.");
+                router.push("/login");
+                return;
+            }
+
+            // Sync tokens locally so authApi interceptors can inject the token correctly
+            localStorage.setItem(AUTH_TOKEN_KEY, session.access_token);
+            localStorage.setItem(REFRESH_TOKEN_KEY, session.refresh_token);
+
+            // Fetch MongoDB user details (backend will auto-provision MongoDB record upon this /auth/me call!)
+            const res = await authApi.me();
+            login(res.data, session.access_token, session.refresh_token);
             toast.success("Welcome to NeuralPress!");
             router.push("/dashboard");
         } catch (err: unknown) {
